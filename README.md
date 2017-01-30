@@ -5,5 +5,5 @@
 Clone the project  
 Command line:  
 Go into the directory,  
-and type: $npm start
+and type: $npm start  
 Open up localhost in a browser
