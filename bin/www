@@ -29,6 +29,25 @@ server.listen(port);
 server.on('error', onError);
 server.on('listening', onListening);
 
+//attach socket.io
+var io = require('socket.io')(server);
+io.on('connection', function(socket){
+  console.log('User connected')
+
+  //detect events
+  socket.on('disconnect', function(){
+    console.log('User disconnected');
+  });
+
+  //detect event
+  socket.on('postMessage', function(data){
+    //create event
+    io.emit('updateMessages', data)
+  });
+
+
+});
+
 /**
  * Normalize a port into a number, string, or false.
  */

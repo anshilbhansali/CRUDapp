@@ -1,21 +1,23 @@
 <!DOCTYPE HTML>
 <html>
   <head>
-    <title>My Angular App!</title>
+    <title id="title_main"><%= title %></title>
 
-    <link rel="stylesheet" type="text/css" href="/stylesheets/bootstrap.min.css">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
 
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/1.7.3/socket.io.js"></script>
     <script type="text/javascript" src="/javascripts/angular.min.js"></script>
     <script src="/javascripts/angularApp.js"></script>
     <script src="http://cdnjs.cloudflare.com/ajax/libs/angular-ui-router/0.3.2/angular-ui-router.js"></script>
 
-    <style> .glyphicon-thumbs-up { cursor:pointer } </style>
+    <style> .glyphicon-thumbs-up  { cursor:pointer;} </style>
+    <style> .glyphicon-thumbs-down  { cursor:pointer } </style>
 
   </head>
-  <body ng-app="flapperNews" ng-controller="MainCtrl as mainctrl">
-
+  <body ng-app="MyNews" ng-controller="MainCtrl as mainctrl">
+    
     <div class="row">
-      <div class="col-md-6 col-md-offset-3">
+      <div class="col-md-8  col-md-offset-2">
 
         <ui-view></ui-view>
 
@@ -28,21 +30,37 @@
 
       <div class="page-header">
           <h1>My News</h1>
-        </div>
 
-        <div ng-repeat="post in mainctrl.posts | orderBy: '-upvotes'">
+      </div>
 
-          <span class="glyphicon glyphicon-thumbs-up" ng-click="mainctrl.incrementUpvotes(post)"></span>
-          {{post.upvotes}}
+      <div>
+        <h3 style="float:left">Logged in as {{mainctrl.getCurrUser()}}</h3>
+        <h3><a ui-sref="chat"  style="float:right">Chat room</a></h3>
+      </div>
+      
+
+        <div ng-repeat="post in mainctrl.posts | orderBy: '-upvotes'" style="clear:left">
+
+          <span ng-show="mainctrl.alreadyUpVoted[post._id]" class="glyphicon glyphicon-thumbs-up" ng-click="mainctrl.decrementUpvotes(post)" style="color:blue"></span>
+          <span ng-hide="mainctrl.alreadyUpVoted[post._id]" class="glyphicon glyphicon-thumbs-up" ng-click="mainctrl.incrementUpvotes(post)"></span>
+          {{post.upvotes}}   
+          
 
           <span style="font-size:20px; margin-left:10px;">
             <a ng-show="post.link" href="{{post.link}}">{{post.title}}</a>
             <span ng-hide="post.link">{{post.title}} </span> 
           </span>
 
+          <span ng-show="post.author">
+            posted by <a ui-sref="user({id: post.author_id})">{{post.author}}</a> |
+          </span>
+          <span ng-hide="post.author">
+            posted by anonymous |
+          </span>
+
           <span>
             <a ui-sref="posts({id: post._id})">{{post.comments.length}} Comments</a>
-            <button type="button" ng-click="mainctrl.deletePost(post)" class="btn btn-danger">Delete</button>
+            <button type="button" ng-click="mainctrl.deletePost(post)" class="btn btn-danger" ng-show="post.author_id == mainctrl.getCurrID()">Delete</button>
           </span>
 
         </div>
@@ -62,6 +80,10 @@
           <button type="submit" class="btn btn-primary">Post</button>
 
         </form>
+
+        <span style="float:right;">
+          <h4><a ng-click="mainctrl.logOut()" style="cursor:pointer">Log Out</a></h3>
+        </span>
 
     </script>
 
@@ -98,12 +120,6 @@
           </input>
         </div>
 
-        <div class="form-group">
-          <input type="text" class="form-control" placeholder="Author"
-          ng-model="postsctrl.author">
-          </input>
-        </div>
-
         <button type="submit" class="btn btn-primary">Add comment</button>
       </form>
 
@@ -115,6 +131,126 @@
       </span>
 
     </script>
+
+    <script type="text/ng-template" id="/register.html">
+      <div class="page-header">
+        <h1>My News</h1>
+      </div>
+
+      <div ng-show="error" class="alert alert-danger row">
+        <span>{{ error.message }}</span>
+      </div>
+
+      <form ng-submit="authctrl.register()"
+        style="margin-top:30px;">
+        <h3>Register</h3>
+
+        <div class="form-group">
+          <input type="text"
+          class="form-control"
+          placeholder="Username"
+          ng-model="authctrl.user.username"></input>
+        </div>
+        <div class="form-group">
+          <input type="password"
+          class="form-control"
+          placeholder="Password"
+          ng-model="authctrl.user.password"></input>
+        </div>
+        <button type="submit" class="btn btn-primary">Register</button>
+      </form>
+      <br></br>
+      <a ui-sref="login" class="btn btn-primary">Login</a>
+    </script>
+
+
+    <script type="text/ng-template" id="/login.html">
+      <div class="page-header">
+        <h1>My News</h1>
+      </div>
+
+      <div ng-show="error" class="alert alert-danger row">
+        <span>{{ error.message }}</span>
+      </div>
+
+      <form ng-submit="authctrl.logIn()"
+        style="margin-top:30px;">
+        <h3>Log In</h3>
+
+        <div class="form-group">
+          <input type="text"
+          class="form-control"
+          placeholder="Username"
+          ng-model="authctrl.user.username"></input>
+        </div>
+        <div class="form-group">
+          <input type="password"
+          class="form-control"
+          placeholder="Password"
+          ng-model="authctrl.user.password"></input>
+        </div>
+        <button type="submit" class="btn btn-primary">Log In</button>
+      </form>
+      <br></br>
+      <a ui-sref="register" class="btn btn-primary">Create an account</a>
+    </script>
+
+    <script type="text/ng-template" id="/chat.html">
+      <div class="container">
+        <div class="row">
+          <div class="col-sm-8">
+            <article class="chat">
+              <header class="chat-header">
+                <div class="h3 chat-title">My Chat
+                </div><!-- chat-title -->
+              </header><!-- chat-header -->
+
+              <form ng-submit="chatctrl.showMessages()" name="chatForm" class="form-horizontal chat-form">
+                <div class="form-group">
+                  <label for="chat-username" class="col-sm-2 control-label">Name</label>
+                  <div class="col-sm-10">
+                    <input type="text" class="form-control" id="chat-username" placeholder="Enter your name" ng-model="chatctrl.name">
+                  </div><!-- col-sm-10 -->
+                </div><!-- form-group -->
+                <div class="form-group">
+                  <label for="chat-message" class="col-sm-2 control-label">Message</label>
+                  <div class="col-sm-10">
+                    <div class="input-group">
+                      <input type="text" placeholder="Enter a message, then press enter" class="form-control" id="chat-message" rows="2" autocomplete="off"
+                        ng-model="chatctrl.message">
+                      <span class="input-group-btn">
+                        <button id="chat-submit" class="btn btn-info" type="submit">Chat</button>
+                      </span>
+                    </div><!-- input-group -->
+                  </div><!-- col-sm-10 -->
+                </div><!-- form-group -->
+              </form>
+
+              <div class="panel panel-default">
+                <div class="panel-body chat-display">
+                  <p class="text-muted chat-text">Welcome...add your message using the form above
+                    <div ng-repeat="message in chatctrl.messages">
+                      <p><strong>{{message.name}}:</strong> {{message.msg}}</p>
+                    </div>
+
+                  </p>
+                </div><!-- panel-body -->
+              </div><!-- panel-default -->
+            </article><!-- article -->
+          </div><!-- col-sm-12 -->
+        </div><!-- row -->
+        <a ui-sref="home" class="btn btn-primary">Back to news</a>
+      </div><!-- container -->
+
+      
+    </script>
+
+    <script type="text/ng-template" id="/users.html">
+      <p>User: {{usersctrl.user.username}}</p>
+
+    </script>
+
+
 
   </body>
 </html>

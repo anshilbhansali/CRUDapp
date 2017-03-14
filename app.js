@@ -5,6 +5,7 @@ var logger = require('morgan');
 var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
 
+
 var mongoose = require('mongoose');
 require('./models/Posts');
 require('./models/Comments');
@@ -21,7 +22,10 @@ var app = express();
 //open a connection to 'my-news' db on mongodb server
 mongoose.connect('mongodb://localhost/my-news');
 
+console.log('Log in as: anshil, qwerasdf');
+
 // view engine setup
+//setting global variables available to entire app
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
 
@@ -33,6 +37,7 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
+//using routes
 app.use('/', index);
 app.use('/users', users);
 app.use(passport.initialize());

@@ -1,4 +1,5 @@
-var app = angular.module('flapperNews', ['ui.router']);
+var app = angular.module('MyNews', ['ui.router']);
+var socket = io();
 
 //config ui-router for routing views
 app.config(['$stateProvider', '$urlRouterProvider', 
@@ -7,13 +8,61 @@ app.config(['$stateProvider', '$urlRouterProvider',
 		$stateProvider.state('home', {
 			url: '/home',
 			templateUrl: '/home.html',
-			controller: 'MainCtrl as mainctrl'
+			controller: 'MainCtrl as mainctrl',
+			onEnter: ['$state', 'auth', function($state, auth){
+		    if(!auth.isLoggedIn()){
+		      $state.go('login');
+		    }
+		  }]
 		})
 		.state('posts', {
 			url: '/posts/{id}',
 			templateUrl: '/posts.html',
 			controller: 'PostsCtrl as postsctrl'
+		})
+		.state('login', {
+		  url: '/login',
+		  templateUrl: '/login.html',
+		  controller: 'AuthCtrl as authctrl',
+		  onEnter: ['$state', 'auth', function($state, auth){
+		    if(auth.isLoggedIn()){
+		      $state.go('home');
+		    }
+		  }]
+		})
+		.state('register', {
+		  url: '/register',
+		  templateUrl: '/register.html',
+		  controller: 'AuthCtrl as authctrl',
+		  onEnter: ['$state', 'auth', function($state, auth){
+		    if(auth.isLoggedIn()){
+		      $state.go('home');
+		    }
+		  }]
+		})
+		.state('chat', {
+			url: '/chat',
+			templateUrl: '/chat.html',
+			controller: 'ChatCtrl as chatctrl',
+			onEnter: ['$state', 'auth', function($state, auth){
+		    if(!auth.isLoggedIn()){
+		    	alert('Please login first');
+		      	$state.go('login');
+		    }
+		  }]
+		})
+		.state('user', {
+			url: '/users/{id}',
+			templateUrl: '/users.html',
+			controller: 'UsersCtrl as usersctrl',
+			onEnter: ['$state', 'auth', function($state, auth){
+		    if(!auth.isLoggedIn()){
+		    	alert('Please login first');
+		      	$state.go('login');
+		    }
+		  }]
 		});
+
 
 		$urlRouterProvider.otherwise('home');
 }]);
@@ -39,17 +88,124 @@ app.factory('posts', [function(){
 
 }]);
 
-app.controller('PostsCtrl', ['$http', 'posts', '$stateParams',
-	function($http, posts, $stateParams){
+//service for authentication
+app.factory('auth', ['$http', '$window', function($http, $window){
+	var auth = {};
+
+	auth.saveToken = function(token){
+		$window.localStorage['my-news-token'] = token;
+	};
+
+	auth.getToken = function (){
+	  return $window.localStorage['my-news-token'];
+	};
+
+	auth.isLoggedIn = function(){
+		var token = auth.getToken();
+		if(token){
+		    var payload = JSON.parse($window.atob(token.split('.')[1]));
+
+		    return payload.exp > Date.now() / 1000;
+		}
+		else{
+		    return false;
+		}
+	};
+
+	auth.currentUser = function(){
+		if(auth.isLoggedIn()){
+		    var token = auth.getToken();
+		    var payload = JSON.parse($window.atob(token.split('.')[1]));
+
+		    return payload.username;
+		}
+	};
+
+	auth.currentID = function(){
+		if(auth.isLoggedIn()){
+		    var token = auth.getToken();
+		    var payload = JSON.parse($window.atob(token.split('.')[1]));
+
+		    return payload._id;
+		}
+	}
+
+	auth.register = function(user){
+
+		return $http.post('/register', user).then(function(res){
+			auth.saveToken(res.data.token);
+			return 'success_register';
+		}, function(res){
+			return 'error_register';
+		});
+	}
+
+	auth.logIn = function(user){
+	  return $http.post('/login', user).then(function(res){
+			auth.saveToken(res.data.token);
+			return 'success_login';
+		}, function(res){
+			return 'error_login';
+		});
+	};
+
+	auth.logOut = function(){
+	  $window.localStorage.removeItem('my-news-token');
+	};
+
+	return auth;
+}]);
+
+app.controller('AuthCtrl', ['$state', 'auth', function($state, auth){
+	var store = this;
+	store.user = {};
+	
+	this.register = function(){
+		
+		auth.register(store.user).then(function(res){
+			if(res === 'success_register')
+			{
+				alert('successfully registered');
+				$state.go('home');
+			}
+			else if(res === 'error_register')
+			{
+				alert("error while registering");
+			}
+
+		});
+	};
+
+	this.logIn = function(){
+		auth.logIn(store.user).then(function(res){
+			if(res === 'success_login')
+			{
+				alert('successfully logged in');
+				$state.go('home');
+			}
+			else if(res === 'error_login')
+			{
+				alert("Incorrect username/password");
+			}
+
+		});
+	};
+
+}]);
+
+app.controller('PostsCtrl', ['$http', 'posts', '$stateParams', 'auth',
+	function($http, posts, $stateParams, auth){
 
 	var store = this;
 	var post_id = $stateParams.id;
+
+	var alreadyUpVoted = {};
 	
 
 	$http.get('/posts/' + post_id).then(function(res){
 		store.post = res.data;
 	}, function(res){
-		alert("bad id: "+ post_id);
+		alert("error ");
 	});
 
 	this.addComment = function(){
@@ -57,11 +213,14 @@ app.controller('PostsCtrl', ['$http', 'posts', '$stateParams',
 		//alert(this.post);
 		var new_comment = {
 			body: this.body,
-			author: this.author,
 			upvotes: 0
 		};
 
-		$http.post('/posts/'+post_id+'/comments', new_comment).then(function(res){
+		var h = {
+			headers: {Authorization: 'Bearer '+auth.getToken()}
+		};
+
+		$http.post('/posts/'+post_id+'/comments', new_comment, h).then(function(res){
 			store.post.comments.push(res.data);
 		}, function(res){
 			alert("bad "+ res);
@@ -72,23 +231,31 @@ app.controller('PostsCtrl', ['$http', 'posts', '$stateParams',
 	}
 
 	this.incrementUpvotes = function(comment){
-		$http.put('/posts/'+post_id+'/comments/'+comment._id+'/upvote').then(function(res){
-			comment.upvotes += 1;
-		}, function(res){
 
-		});
+		if(alreadyUpVoted[comment._id]==null)
+		{
+			$http.put('/posts/'+post_id+'/comments/'+comment._id+'/upvote').then(function(res){
+				comment.upvotes += 1;
+				alreadyUpVoted[comment._id] = true;
+			}, function(res){
+
+			});
+		}
+		else
+			alert('You can only vote once');
+		
 	}
 
 }]);
 
 
-app.controller('MainCtrl', ['$http', 'posts',function($http, posts){
-	
-	
-	//NEEDS A WEBSERVER
+app.controller('MainCtrl', ['$http', 'posts', 'auth', '$state',
+	function($http, posts, auth, $state){
 	
 	var store = this;
 	store.posts = [];
+
+	store.alreadyUpVoted = {};
 
 	$http.get('/posts').then(function(response){
 		//success
@@ -102,22 +269,35 @@ app.controller('MainCtrl', ['$http', 'posts',function($http, posts){
 
 
 	this.addPost = function(){
-		if(this.title === ""){return;}
+		//alert(this.title);
+		if(this.title === "" || !this.title){
+			alert('Please fill in all blanks');
+			return;
+		}
 
 		var new_post = {
 			title:this.title, 
 			upvotes:0,
 			link: this.link,
+			author: auth.currentUser(),
+			author_id: auth.currentID(),
 			comments: []
 		};
 
-		$http.post('/posts', new_post).then(function(res){
+		//for authorization
+		var h = {
+			headers: {Authorization: 'Bearer ' + auth.getToken()}
+		};
+		//alert(auth.getToken());
+
+		$http.post('/posts', new_post, h)
+		.then(function(res){
 			//success
 			//alert("success");
 			store.posts.push(res.data);
 		},function(res){
 			//error
-			alert("bad "+ res);
+			alert("bad post"+ res.data);
 		});
 
 		
@@ -126,19 +306,28 @@ app.controller('MainCtrl', ['$http', 'posts',function($http, posts){
 		this.link = "";
 	}
 
-	this.incrementUpvotes = function(post){
-
-		$http.put('/posts/'+post._id+'/upvote').then(function(res){
-			post.upvotes += 1;
+	this.decrementUpvotes = function(post){
+		$http.put('/posts/'+post._id+'/downvote').then(function(res){
+			post.upvotes -= 1;
+			store.alreadyUpVoted[post._id] = false;
 		}, function(res){
 			alert("bad "+ res);
 		})
 		
-		//alert(post.title);
+		
 	}
 
-	this.deletePost = function(post){
+	this.incrementUpvotes = function(post){
+		$http.put('/posts/'+post._id+'/upvote', {id: auth.currentID()}).then(function(res){
+			post.upvotes += 1;
+			store.alreadyUpVoted[post._id] = true;
+		}, function(res){
+			alert("bad "+ res);
+		});
+	}
 
+
+	this.deletePost = function(post){
 		if(confirm("are you sure?"))
 		{
 			$http.delete('/posts/'+post._id).then(function(res){
@@ -153,7 +342,64 @@ app.controller('MainCtrl', ['$http', 'posts',function($http, posts){
 		
 	}
 
-	
+	this.getCurrUser = function(){
+		return auth.currentUser();
+	}
+
+	this.getCurrID = function(){
+		return auth.currentID();
+	}
+
+	this.logOut = function(){
+		auth.logOut();
+		$state.go('login');
+	}
+
+}]);
+
+app.controller('ChatCtrl', ['auth', function(auth){
+
+	var store = this;
+	store.messages = [];
+
+	this.showMessages = function(){
+		var name;
+		if(!this.name)
+			name = auth.currentUser();
+		else 
+			name = this.name;
+		
+		var msg = this.message;
+		var message = {
+			name: name,
+			msg: msg,
+		};
+
+		this.message = '';
+
+		if(message.msg)
+			socket.emit('postMessage', message);		
+
+	};
+
+	//detecting an event
+	socket.on('updateMessages', function(message){
+		store.messages.push(message);
+		//simple hack, bec messages wouldnt show unless clicked on that
+		document.getElementById("chat-submit").click();
+	});
+}]);
+
+app.controller('UsersCtrl', ['$stateParams', '$http', function($stateParams, $http){
+	var user_id = $stateParams.id;
+
+	var store = this;
+
+	$http.get('/users/' + user_id).then(function(res){
+		store.user = res.data;
+	}, function(res){
+		alert("error " + res);
+	});
 
 
 }]);

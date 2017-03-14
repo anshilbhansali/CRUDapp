@@ -9,16 +9,18 @@ var Comment = mongoose.model('Comment');
 var User = mongoose.model('User');
 
 var router = express.Router();
+var auth = jwt({secret: 'SECRET', userProperty: 'payload'});
 
 /* GET home page. */
 //http://localhost:3000
 router.get('/', function(req, res, next) {
-  res.render('index', { title: 'Express' });
+  res.render('index', { title: 'My News' });
 });
 
 
 //Posts
 //test by http://localhost:3000/posts
+//get all posts
 router.get('/posts', function(req, res, next){
 	Post.find(function(err, posts){
 		if(err){return next(err);}
@@ -28,7 +30,8 @@ router.get('/posts', function(req, res, next){
 
 });
 
-router.post('/posts', function(req, res, next){
+//create a post
+router.post('/posts', auth, function(req, res, next){
 	var post = new Post(req.body);
 
 	post.save(function(err, post){
@@ -51,6 +54,7 @@ router.param('post', function(req, res, next, id){
 	});
 });
 
+//get a specific post
 router.get('/posts/:post', function(req, res){
 	req.post.populate('comments', function(err, post) {
     if (err) { return next(err); }
@@ -59,8 +63,9 @@ router.get('/posts/:post', function(req, res){
   });
 });
 
+//update(upvote) a post
 router.put('/posts/:post/upvote', function(req, res, next){
-	
+	//req.post.setUserUpvoted(req.body.id);
 	req.post.upvote(function(err, post){
 		if(err){return next(err);}
 
@@ -69,6 +74,16 @@ router.put('/posts/:post/upvote', function(req, res, next){
 
 });
 
+//update(downvote) a post
+router.put('/posts/:post/downvote', function(req, res, next){
+	req.post.downvote(function(err, post){
+		if(err){return next(err);}
+
+		res.json(post);
+	});
+})
+
+//delete a post
 router.delete('/posts/:post', function(req, res){
 	req.post.remove(function(err, post){
 		if(err){return next(err);}
@@ -78,9 +93,10 @@ router.delete('/posts/:post', function(req, res){
 });
 
 //Comments
-router.post('/posts/:post/comments', function(req, res, next){
+router.post('/posts/:post/comments',auth, function(req, res, next){
 	var comment = new Comment(req.body);
 	comment.post = req.post;
+	comment.author = req.payload.username;
 
 	comment.save(function(err, comment){
 		if(err){return next(err);}
@@ -137,7 +153,6 @@ router.post('/register', function(req, res, next){
   	user.username = req.body.username;
  	user.setPassword(req.body.password);
 
-
 	user.save(function(err){
 		if(err){return next(err);}
 
@@ -160,6 +175,8 @@ router.post('/login', function(req, res, next){
 	    }
 	})(req, res, next);
 });
+
+
 
 module.exports = router;
 
