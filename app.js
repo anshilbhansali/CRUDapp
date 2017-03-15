@@ -9,6 +9,7 @@ var bodyParser = require('body-parser');
 var mongoose = require('mongoose');
 require('./models/Posts');
 require('./models/Comments');
+require('./models/Upvotes');
 
 var passport = require('passport');
 require('./models/Users');
@@ -16,6 +17,7 @@ require('./config/passport');
 
 var index = require('./routes/index');
 var users = require('./routes/users');
+var upvotes = require('./routes/upvotes');
 
 var app = express();
 
@@ -40,6 +42,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 //using routes
 app.use('/', index);
 app.use('/users', users);
+app.use('/upvotes', upvotes);
 app.use(passport.initialize());
 
 // catch 404 and forward to error handler

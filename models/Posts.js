@@ -1,5 +1,4 @@
 var mongoose = require('mongoose');
-const Console = require('console').Console;
 
 var PostSchema = new mongoose.Schema({
 	title: String,

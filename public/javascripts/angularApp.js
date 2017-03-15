@@ -255,8 +255,11 @@ app.controller('MainCtrl', ['$http', 'posts', 'auth', '$state',
 	var store = this;
 	store.posts = [];
 
-	store.alreadyUpVoted = {};
+	store.alreadyUpVoted = {}; // <post_id, boolean>
+	var Upvotes = {};
+	var postToUpvote = {}; //<post_id, upvote_id>
 
+	//get all posts
 	$http.get('/posts').then(function(response){
 		//success
 		store.posts = response.data;
@@ -266,6 +269,25 @@ app.controller('MainCtrl', ['$http', 'posts', 'auth', '$state',
 		alert("Bad "+response);
 	});
 
+	//get all upvotes
+	$http.get('/upvotes').then(function(res){
+		Upvotes = res.data;
+
+		//parse upvotes into a dictionary
+		Upvotes.forEach(function(upvote){
+
+			if(upvote.user_id == auth.currentID())
+			{
+				store.alreadyUpVoted[upvote.post_id] = true;
+				postToUpvote[upvote.post_id] = upvote._id;
+			}
+		});
+
+	}, function(res){
+		alert("Did not get all upvotes "+res);
+	});
+
+	
 
 
 	this.addPost = function(){
@@ -300,8 +322,6 @@ app.controller('MainCtrl', ['$http', 'posts', 'auth', '$state',
 			alert("bad post"+ res.data);
 		});
 
-		
-
 		this.title = "";
 		this.link = "";
 	}
@@ -310,6 +330,16 @@ app.controller('MainCtrl', ['$http', 'posts', 'auth', '$state',
 		$http.put('/posts/'+post._id+'/downvote').then(function(res){
 			post.upvotes -= 1;
 			store.alreadyUpVoted[post._id] = false;
+
+			//DELETE upvote
+			var upvote_id = postToUpvote[post._id];
+			//alert(upvote_id);
+			$http.delete('/upvotes/'+upvote_id).then(function(res){
+				//alert('deleted upvote successfully');
+			}, function(res){
+				//alert('could not delete upvote');
+			});
+
 		}, function(res){
 			alert("bad "+ res);
 		})
@@ -318,9 +348,21 @@ app.controller('MainCtrl', ['$http', 'posts', 'auth', '$state',
 	}
 
 	this.incrementUpvotes = function(post){
-		$http.put('/posts/'+post._id+'/upvote', {id: auth.currentID()}).then(function(res){
+		$http.put('/posts/'+post._id+'/upvote').then(function(res){
 			post.upvotes += 1;
 			store.alreadyUpVoted[post._id] = true;
+
+			//POST request, create new Upvote
+			var new_upvote = {
+				user_id: auth.currentID(),
+				post_id: post._id
+			};
+			$http.post('/upvotes', new_upvote).then(function(res){
+				//alert('created new upvote successfully');
+			}, function(res){
+				//alert('could not create new upvote');
+			});
+
 		}, function(res){
 			alert("bad "+ res);
 		});
