@@ -22,9 +22,8 @@ router.get('/', function(req, res, next) {
 //test by http://localhost:3000/posts
 //get all posts
 router.get('/posts', function(req, res, next){
-	Post.find(function(err, posts){
+	Post.find().populate('comments').exec(function(err, posts){
 		if(err){return next(err);}
-
 		res.json(posts);
 	});
 
@@ -42,14 +41,14 @@ router.post('/posts', auth, function(req, res, next){
 });
 
 router.param('post', function(req, res, next, id){
-	var query = Post.findById(id);
 
+	var query = Post.findById(id);
 	query.exec(function(err, post){
 		if(err){return next(err);}
-
 		if(!post){return next(new Error('cant find post'));}
 
 		req.post = post;
+
 		return next();
 	});
 });
@@ -65,7 +64,6 @@ router.get('/posts/:post', function(req, res){
 
 //update(upvote) a post
 router.put('/posts/:post/upvote', function(req, res, next){
-	//req.post.setUserUpvoted(req.body.id);
 	req.post.upvote(function(err, post){
 		if(err){return next(err);}
 
@@ -96,7 +94,6 @@ router.delete('/posts/:post', function(req, res){
 router.post('/posts/:post/comments',auth, function(req, res, next){
 	var comment = new Comment(req.body);
 	comment.post = req.post;
-	comment.author = req.payload.username;
 
 	comment.save(function(err, comment){
 		if(err){return next(err);}
@@ -131,6 +128,15 @@ router.param('comment', function(req, res, next, id){
 	});
 });
 
+
+router.delete('/posts/:post/comments/:comment', function(req, res, next){
+
+	req.comment.remove(function(err, comment){
+		if(err){return next(err);}
+		res.json(comment);
+	});
+
+});
 
 
 router.put('/posts/:post/comments/:comment/upvote', function(req, res, next){

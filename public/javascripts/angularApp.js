@@ -193,6 +193,7 @@ app.controller('AuthCtrl', ['$state', 'auth', function($state, auth){
 
 }]);
 
+//SPECIFIC POST
 app.controller('PostsCtrl', ['$http', 'posts', '$stateParams', 'auth',
 	function($http, posts, $stateParams, auth){
 
@@ -200,20 +201,24 @@ app.controller('PostsCtrl', ['$http', 'posts', '$stateParams', 'auth',
 	var post_id = $stateParams.id;
 
 	var alreadyUpVoted = {};
-	
 
 	$http.get('/posts/' + post_id).then(function(res){
 		store.post = res.data;
+		//alert(store.post.comments.length);
 	}, function(res){
 		alert("error ");
 	});
+
+
 
 	this.addComment = function(){
 		if(this.body==="")return;
 		//alert(this.post);
 		var new_comment = {
 			body: this.body,
-			upvotes: 0
+			upvotes: 0,
+			author: auth.currentUser(),
+			author_id: auth.currentID()
 		};
 
 		var h = {
@@ -243,12 +248,31 @@ app.controller('PostsCtrl', ['$http', 'posts', '$stateParams', 'auth',
 		}
 		else
 			alert('You can only vote once');
-		
 	}
+
+	this.deleteComment = function(comment){
+		if(confirm("are you sure?"))
+		{
+			$http.delete('/posts/'+post_id+'/comments/'+comment._id).then(function(res){
+			
+				var i = store.post.comments.indexOf(comment);
+				store.post.comments.splice(i,1); 
+
+			}, function(res){
+				alert("bad "+res);
+			});
+		}
+	}
+
+	this.getCurrID = function(){
+		return auth.currentID();
+	}
+
+
 
 }]);
 
-
+//ALL POSTS ~ main room
 app.controller('MainCtrl', ['$http', 'posts', 'auth', '$state',
 	function($http, posts, auth, $state){
 	
@@ -263,7 +287,7 @@ app.controller('MainCtrl', ['$http', 'posts', 'auth', '$state',
 	$http.get('/posts').then(function(response){
 		//success
 		store.posts = response.data;
-
+		//alert(store.posts[0].comments[0]);
 	}, function(response){
 		//error
 		alert("Bad "+response);
@@ -399,6 +423,7 @@ app.controller('MainCtrl', ['$http', 'posts', 'auth', '$state',
 
 }]);
 
+//CHATROOM
 app.controller('ChatCtrl', ['auth', function(auth){
 
 	var store = this;
@@ -432,6 +457,8 @@ app.controller('ChatCtrl', ['auth', function(auth){
 	});
 }]);
 
+
+//USER PROFILES
 app.controller('UsersCtrl', ['$stateParams', '$http', function($stateParams, $http){
 	var user_id = $stateParams.id;
 

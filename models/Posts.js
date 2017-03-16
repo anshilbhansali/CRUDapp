@@ -6,7 +6,6 @@ var PostSchema = new mongoose.Schema({
 	upvotes: {type: Number, default: 0},
 	author: String, 
 	author_id: String, 
-	//alreadyUpVoted: [Boolean], mongoose does not take dictionaries
 	comments: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Comment' }]
 });
 
