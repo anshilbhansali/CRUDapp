@@ -8,5 +8,5 @@ Go into the directory,
 and type: $npm start  
 Open up localhost:3000 in a browser
 
-Imp: ensure you have mongodb installed in your machine
+Imp: ensure you have mongodb installed in your machine   
 start the mongodb server by: $mongod &
